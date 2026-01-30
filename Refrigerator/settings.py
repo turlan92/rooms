@@ -9,9 +9,9 @@ SECRET_KEY = 'django-insecure-(7k!0hn8#y+ml%!+y0uj*g5r2mqee_xl1^#+$cq$0jmqq6&16&
 DEBUG = False
 
 ALLOWED_HOSTS = [
+    "rooms-production-2163.up.railway.app/",
     "127.0.0.1",
     "localhost",
-    '.railway.app',
 ]
 
 INTERNAL_IPS = [
@@ -125,7 +125,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://fridge1-production.up.railway.app",
+    "https://rooms-production-2163.up.railway.app/",
 ]
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
