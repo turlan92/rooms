@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Fridge Detail{% endblock %}
+{% block title %}Температуры{% endblock %}
 
 {% block content %}
 <h2 class="mb-4 text-center text-primary">{{ fridge.name }}</h2>
@@ -9,10 +9,10 @@
 <div class="mb-4 text-center">
     <form method="get" class="d-inline-flex align-items-center justify-content-center">
         <label for="start_date" class="me-2">From:</label>
-        <input type="date" name="start_date" id="start_date" value="{{ start_date }}" class="form-control me-3">
+        <input type="date" name="start_date" id="start_date" value="{{ start_date_str }}" class="form-control me-3">
 
         <label for="end_date" class="me-2">To:</label>
-        <input type="date" name="end_date" id="end_date" value="{{ end_date }}" class="form-control me-3">
+        <input type="date" name="end_date" id="end_date" value="{{ end_date_str }}" class="form-control me-3">
 
         <button type="submit" class="btn btn-success">Отфильтровать</button>
     </form>
@@ -25,28 +25,16 @@
         <tr>
             <th>Температура датчика 1 (°C)</th>
             <th>Температура датчика 2 (°C)</th>
-            <th>Время открытия двери (сек)</th>
-            <th>Потеря питания</th>
             <th>Влажность (%)</th>
             <th>Температура воздуха (°C)</th>
             <th>Дата события</th>
         </tr>
         </thead>
         <tbody>
-        {% for record in records %}
+        {% for record in page_obj %}
         <tr class="{% if record.is_out_of_range %}table-danger{% endif %}">
             <td>{{ record.sensor1_temp }}°C</td>
             <td>{{ record.sensor2_temp }}°C</td>
-            <td>{{ record.door_open_duration_sec|default:"—" }}</td>
-            <td>
-                {% if record.power_lost == True %}
-                    Да
-                {% elif record.power_lost == False %}
-                    Нет
-                {% else %}
-                    —
-                {% endif %}
-            </td>
             <td>{{ record.humidity|default:"—" }}</td>
             <td>{{ record.air_temp|default:"—" }}</td>
             <td>{{ record.event_date|date:"Y-m-d H:i" }}</td>
@@ -59,5 +47,34 @@
         </tbody>
     </table>
 </div>
+
+<!-- Пагинация -->
+<nav aria-label="Page navigation" class="mt-3">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}">Previous</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}">{{ num }}</a>
+        </li>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}">Next</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+    {% endif %}
+  </ul>
+</nav>
 
 {% endblock %}

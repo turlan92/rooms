@@ -15,10 +15,9 @@ class RefrigeratorDataAdmin(admin.ModelAdmin):
         'humidity',         # добавил
         'air_temp',         # добавил
         'is_out_of_range',
-        'door_open_duration_sec',  # добавил
-        'power_lost'        # добавил
     )
-    list_filter = ('event_date', 'is_out_of_range', 'power_lost')  # добавил фильтры по новым булевым полям
+    list_filter = ('fridge', 'is_out_of_range', 'event_date')  # добавил фильтры по новым булевым полям
+    search_fields = ('fridge', 'event_date')
 
 admin.site.register(Fridge, FridgeAdmin)
 admin.site.register(RefrigeratorData, RefrigeratorDataAdmin)

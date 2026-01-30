@@ -1,21 +1,17 @@
 import os.path
 from pathlib import Path
+import dj_database_url
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-(7k!0hn8#y+ml%!+y0uj*g5r2mqee_xl1^#+$cq$0jmqq6&16&'
 
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    "fridge1-production.up.railway.app",
     "127.0.0.1",
     "localhost",
+    '.railway.app',
 ]
 
 INTERNAL_IPS = [
@@ -73,10 +69,11 @@ WSGI_APPLICATION = 'Refrigerator.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get("DATABASE_URL"),
+        conn_max_age=600,
+        ssl_require=True
+    )
 }
 
 # Password validation

@@ -8,18 +8,17 @@ from django.utils import timezone
 from datetime import datetime
 import requests
 from .models import RefrigeratorData
+from django.core.paginator import Paginator
 import socket
 import errno
-
-
 from .models import Fridge
 from .serializers import RefrigeratorDataSerializer
+from django.http import JsonResponse
 
 
 def fridge_list(request):
     fridges = Fridge.objects.all()
     return render(request, 'fr1/fridge_list.html', {'fridges': fridges})
-
 
 def fridge_detail(request, fridge_id):
     fridge = get_object_or_404(Fridge, id=fridge_id)
@@ -36,17 +35,22 @@ def fridge_detail(request, fridge_id):
     if end_date:
         filters['event_date__lte'] = datetime.combine(end_date, datetime.max.time())
 
-    records = RefrigeratorData.objects.filter(fridge=fridge, **filters).order_by('-event_date')[:100]
+    records_queryset = RefrigeratorData.objects.filter(fridge=fridge, **filters).order_by('-event_date')
+
+    # --- Пагинация ---
+    page_number = request.GET.get('page', 1)  # номер страницы из GET, по умолчанию 1
+    paginator = Paginator(records_queryset, 100)  # 20 записей на страницу
+    page_obj = paginator.get_page(page_number)  # безопасно получаем страницу
 
     return render(request, 'fr1/fridge_detail.html', {
         'fridge': fridge,
-        'records': records,
-        'start_date': start_date,
-        'end_date': end_date
+        'page_obj': page_obj,  # здесь теперь все записи текущей страницы
+        'start_date_str': start_date_str,
+        'end_date_str': end_date_str
     })
 
-
 def daily_temperatures(request):
+    # --- Даты из GET или сегодня по умолчанию ---
     start_date_str = request.GET.get('start_date', timezone.now().strftime('%Y-%m-%d'))
     end_date_str = request.GET.get('end_date', timezone.now().strftime('%Y-%m-%d'))
 
@@ -57,43 +61,87 @@ def daily_temperatures(request):
         start_date_obj = timezone.now()
         end_date_obj = timezone.now()
 
-    records = RefrigeratorData.objects.filter(
+    # --- Queryset с фильтром по датам ---
+    records_queryset = RefrigeratorData.objects.filter(
         event_date__range=(start_date_obj, end_date_obj)
-    ).select_related('fridge').order_by('-event_date')[:100]
+    ).select_related('fridge').order_by('-event_date')
 
+    # --- Пагинация ---
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(records_queryset, 20)  # 20 записей на страницу
+    page_obj = paginator.get_page(page_number)
+
+    # --- Если AJAX запрос, возвращаем JSON ---
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        records = []
+        for rec in page_obj:
+            records.append({
+                'fridge_name': rec.fridge.name,
+                'sensor1_temp': rec.sensor1_temp,
+                'sensor2_temp': rec.sensor2_temp,
+                'humidity': rec.humidity,
+                'air_temp': rec.air_temp,
+                'event_date': rec.event_date.strftime('%Y-%m-%d %H:%M'),
+                'is_out_of_range': rec.is_out_of_range,
+            })
+        return JsonResponse({'records': records})
+
+    # --- Обычный рендер шаблона ---
     return render(request, 'fr1/daily_temperatures.html', {
-        'records': records,
-        'start_date': start_date_obj.date(),
-        'end_date': end_date_obj.date()
+        'page_obj': page_obj,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
     })
-
 
 def emergencies(request):
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
 
-    start_date = parse_date(start_date_str) if start_date_str else None
-    end_date = parse_date(end_date_str) if end_date_str else None
+    try:
+        if start_date_str:
+            start_date_obj = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'))
+        else:
+            start_date_obj = None
 
+        if end_date_str:
+            end_date_obj = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
+        else:
+            end_date_obj = None
+    except ValueError:
+        start_date_obj = None
+        end_date_obj = None
+
+    # Фильтры для queryset
     filters = {}
-    if start_date:
-        filters['event_date__gte'] = datetime.combine(start_date, datetime.min.time())
-    if end_date:
-        filters['event_date__lte'] = datetime.combine(end_date, datetime.max.time())
+    if start_date_obj:
+        filters['event_date__gte'] = start_date_obj
+    if end_date_obj:
+        filters['event_date__lte'] = end_date_obj
 
-    emergency_records = RefrigeratorData.objects.filter(is_out_of_range=True, **filters)
-    emergency_records = emergency_records.select_related('fridge').order_by('-event_date')[:100]
+    # Получаем queryset аварийных записей
+    emergency_queryset = RefrigeratorData.objects.filter(is_out_of_range=True, **filters).select_related('fridge').order_by('-event_date')
+
+    # Пагинация
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(emergency_queryset, 20)  # 20 записей на страницу
+    page_obj = paginator.get_page(page_number)
+
+    # GET параметры для сохранения фильтров при переходе страниц
+    get_params = ""
+    if start_date_str:
+        get_params += f"start_date={start_date_str}"
+    if end_date_str:
+        get_params += f"&end_date={end_date_str}" if get_params else f"end_date={end_date_str}"
 
     return render(request, 'fr1/emergencies.html', {
-        'emergency_records': emergency_records,
-        'start_date': start_date,
-        'end_date': end_date
+        'page_obj': page_obj,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'get_params': get_params
     })
 
 TELEGRAM_BOT_TOKEN = "8031748926:AAGnjGN5qneH5w-aFg54SHCNRjBvQTJ0bXQ"
 TELEGRAM_CHAT_ID = "-1003045548424"
-
-
 
 @api_view(['POST'])
 def create_refrigerator_data(request):

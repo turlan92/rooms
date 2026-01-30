@@ -1,18 +1,16 @@
 {% extends 'base.html' %}
 
-{% block title %}Fridge Detail{% endblock %}
-
 {% block content %}
-<h2 class="mb-4 text-center text-primary">{{ fridge.name }}</h2>
+<h2 class="mb-4 text-center text-primary">Ежедневные температуры</h2>
 
 <!-- Форма фильтрации по датам -->
 <div class="mb-4 text-center">
-    <form method="get" class="d-inline-flex align-items-center justify-content-center">
-        <label for="start_date" class="me-2">From:</label>
-        <input type="date" name="start_date" id="start_date" value="{{ start_date }}" class="form-control me-3">
+    <form id="filter-form" method="get" class="d-inline-flex align-items-center">
+        <label for="start_date" class="me-2">С:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control me-3">
 
-        <label for="end_date" class="me-2">To:</label>
-        <input type="date" name="end_date" id="end_date" value="{{ end_date }}" class="form-control me-3">
+        <label for="end_date" class="me-2">До:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control me-3">
 
         <button type="submit" class="btn btn-success">Отфильтровать</button>
     </form>
@@ -22,42 +20,106 @@
 <div class="table-responsive">
     <table class="table table-bordered table-striped">
         <thead class="table-dark">
-        <tr>
-            <th>Температура датчика 1 (°C)</th>
-            <th>Температура датчика 2 (°C)</th>
-            <th>Время открытия двери (сек)</th>
-            <th>Потеря питания</th>
-            <th>Влажность (%)</th>
-            <th>Температура воздуха (°C)</th>
-            <th>Дата события</th>
-        </tr>
+            <tr>
+                <th>Холодильник</th>
+                <th>Температура датчика 1 (°C)</th>
+                <th>Температура датчика 2 (°C)</th>
+                <th>Влажность (%)</th>
+                <th>Температура воздуха (°C)</th>
+                <th>Дата события</th>
+            </tr>
         </thead>
-        <tbody>
-        {% for record in records %}
-        <tr class="{% if record.is_out_of_range %}table-danger{% endif %}">
-            <td>{{ record.sensor1_temp }}°C</td>
-            <td>{{ record.sensor2_temp }}°C</td>
-            <td>{{ record.door_open_duration_sec|default:"—" }}</td>
-            <td>
-                {% if record.power_lost == True %}
-                    Да
-                {% elif record.power_lost == False %}
-                    Нет
-                {% else %}
-                    —
-                {% endif %}
-            </td>
-            <td>{{ record.humidity|default:"—" }}</td>
-            <td>{{ record.air_temp|default:"—" }}</td>
-            <td>{{ record.event_date|date:"Y-m-d H:i" }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="7" class="text-center">Записей не найдено за выбранный период.</td>
-        </tr>
-        {% endfor %}
+        <tbody id="table-body">
+            {% for record in page_obj %}
+            <tr class="{% if record.is_out_of_range %}table-danger{% endif %}">
+                <td>{{ record.fridge.name }}</td>
+                <td>{{ record.sensor1_temp }}°C</td>
+                <td>{{ record.sensor2_temp }}°C</td>
+                <td>{{ record.humidity|default:"—" }}</td>
+                <td>{{ record.air_temp|default:"—" }}</td>
+                <td>{{ record.event_date|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">Записей не найдено за выбранный период.</td>
+            </tr>
+            {% endfor %}
         </tbody>
     </table>
 </div>
 
+<!-- Пагинация -->
+<nav aria-label="Page navigation" class="mt-3">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}">Previous</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ num }}</a>
+        </li>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}">Next</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+    {% endif %}
+  </ul>
+</nav>
+
+<!-- Автообновление через AJAX -->
+<script>
+function fetchData() {
+    const start_date = document.getElementById('start_date').value;
+    const end_date = document.getElementById('end_date').value;
+    const page = new URLSearchParams(window.location.search).get('page') || 1;
+
+    fetch(`?start_date=${start_date}&end_date=${end_date}&page=${page}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(resp => resp.json())
+    .then(data => {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+
+        data.records.forEach(record => {
+            const tr = document.createElement('tr');
+            if(record.is_out_of_range) tr.classList.add('table-danger');
+
+            tr.innerHTML = `
+                <td>${record.fridge_name}</td>
+                <td>${record.sensor1_temp}°C</td>
+                <td>${record.sensor2_temp}°C</td>
+                <td>${record.humidity ?? '—'}</td>
+                <td>${record.air_temp ?? '—'}</td>
+                <td>${record.event_date}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    })
+    .catch(err => console.error('Ошибка загрузки данных:', err));
+}
+
+// Первый вызов
+fetchData();
+
+// Обновление каждые 5 секунд
+setInterval(fetchData, 5000);
+
+// Обновление при смене фильтров
+document.getElementById('filter-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    fetchData();
+});
+</script>
 {% endblock %}

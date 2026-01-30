@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 
-{% block title %}Список холодильников{% endblock %}
+{% block title %}Список датчиков{% endblock %}
 
 {% block content %}
-<h2 class="mb-4 text-center text-primary">Холодильное оборудование в цеху</h2>
+<h2 class="mb-4 text-center text-primary">Датчики</h2>
 <div class="list-group">
     {% for fridge in fridges %}
     <a href="{% url 'fridge_detail' fridge.id %}" class="list-group-item list-group-item-action flex-column align-items-start shadow-sm mb-3 rounded" style="background-color: #f8f9fa;">
@@ -17,5 +17,6 @@
     {% empty %}
     <p>No fridges available.</p>
     {% endfor %}
+    
 </div>
 {% endblock %}
