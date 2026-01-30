@@ -74,8 +74,8 @@ DATABASES = {
         'NAME': os.environ.get('PGDATABASE'),
         'USER': os.environ.get('PGUSER'),
         'PASSWORD': os.environ.get('PGPASSWORD'),
-        'HOST': 'postgres.railway.internal',
-        'PORT': os.environ.get('PGPORT'),
+        'HOST': os.environ.get('PGHOST', 'localhost'),
+        'PORT': os.environ.get('PGPORT', '5432'),
     }
 }
 
