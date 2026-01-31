@@ -72,13 +72,18 @@ import os
 import dj_database_url  # pip install dj-database-url
 
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600,
-        ssl_require=True
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'railway',
+        'USER': 'postgres',
+        'PASSWORD': 'lYmBLHuddFlehbodGvbWfvdqfwZbiZfr',
+        'HOST': 'trolley.proxy.rlwy.net',
+        'PORT': '54585',
+        'OPTIONS': {
+            'sslmode': 'require',  # важно для Railway
+        },
+    }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
