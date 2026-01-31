@@ -69,14 +69,11 @@ WSGI_APPLICATION = 'Refrigerator.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('PGDATABASE'),
-        'USER': os.environ.get('PGUSER'),
-        'PASSWORD': os.environ.get('PGPASSWORD'),
-        'HOST': os.environ.get('PGHOST', 'localhost'),
-        'PORT': os.environ.get('PGPORT', '5432'),
-    }
+    "default": dj_database_url.config(
+        default=os.environ.get("DATABASE_URL"),  # берем переменную DATABASE_URL
+        conn_max_age=600,  # оптимизация соединений
+        ssl_require=True   # если база требует SSL
+    )
 }
 
 # Password validation
